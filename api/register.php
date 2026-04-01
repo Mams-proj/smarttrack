@@ -1,47 +1,32 @@
 <?php
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
-
-header('Content-Type: application/json');
-
-require __DIR__ . '/config.php';
+require 'config.php';
 
 $data = json_decode(file_get_contents("php://input"), true);
 
-if (!$data) {
-    echo json_encode(["success"=>false,"message"=>"No data"]);
-    exit;
-}
-
-$school   = $data['school_name'] ?? '';
-$admin    = $data['admin_name'] ?? '';
-$email    = $data['email'] ?? '';
+$school   = trim($data['school_name'] ?? '');
+$admin    = trim($data['admin_name'] ?? '');
+$email    = trim($data['email'] ?? '');
 $password = $data['password'] ?? '';
 
 if (!$school || !$admin || !$email || !$password) {
-    echo json_encode(["success"=>false,"message"=>"Missing fields"]);
+    echo json_encode(["success"=>false, "message"=>"All fields are required"]);
+    exit;
+}
+
+if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    echo json_encode(["success"=>false, "message"=>"Invalid email"]);
     exit;
 }
 
 $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
 
 $stmt = $conn->prepare("INSERT INTO users (school_name, admin_name, email, password) VALUES (?, ?, ?, ?)");
-
-if (!$stmt) {
-    echo json_encode([
-        "success" => false,
-        "message" => "Prepare failed: " . $conn->error
-    ]);
-    exit;
-}
-
 $stmt->bind_param("ssss", $school, $admin, $email, $hashedPassword);
 
 if ($stmt->execute()) {
-    echo json_encode(["success"=>true]);
+    echo json_encode(["success"=>true, "message"=>"School registered successfully"]);
 } else {
-    echo json_encode([
-        "success"=>false,
-        "message"=>$stmt->error
-    ]);
+    echo json_encode(["success"=>false, "message"=>$stmt->error ?: "Registration failed (email may already exist)"]);
 }
+$stmt->close();
+?>
