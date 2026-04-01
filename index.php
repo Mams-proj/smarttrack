@@ -390,16 +390,7 @@ window.handleSchoolSignup = async function () {
             body: JSON.stringify(payload)
         });
 
-        const text = await res.text();
-
-        let data;
-        try {
-            data = JSON.parse(text);
-        } catch {
-            console.error("Invalid JSON:", text);
-            alert("Server returned invalid response");
-            return;
-        }
+        const data = await res.json();
 
         if (data.success) {
             alert("✅ Registered successfully");
@@ -412,6 +403,7 @@ window.handleSchoolSignup = async function () {
         alert("❌ Network error");
     }
 };
+
 async function handleSchoolLogin() {
     const email = document.getElementById("login-email").value.trim();
     const password = document.getElementById("login-password").value.trim();
@@ -422,45 +414,35 @@ async function handleSchoolLogin() {
     }
 
     try {
-        const res = await fetch(API_BASE + "login.php", {
+        const res = await fetch("api/login.php", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ username: email, password: password })
         });
 
-        const text = await res.text();
-        console.log("Login RAW Response:", text);
+        const data = await res.json();
 
-        if (text.includes("<html")) {
-            showToast("⚠️ Server returned HTML (error)");
-            return;
-        }
+        if (data.success) {
+            showToast("✅ Login Successful!");
 
-        const data = JSON.parse(text);
+            schoolData = {
+                schoolName: data.schoolName,
+                adminName: data.adminName
+            };
 
-if (data.success) {
-    showToast("✅ Login Successful!");
+            document.getElementById("auth-screen").classList.add("hidden");
+            document.getElementById("main-app").classList.remove("hidden");
 
-    // ✅ SAVE DATA
-    schoolData = {
-        schoolName: data.schoolName,
-        adminName: data.adminName
-    };
-
-    // ✅ INIT APP
-    initializeMainApp();
-
-    document.getElementById("auth-screen").classList.add("hidden");
-    document.getElementById("main-app").classList.remove("hidden");
-} else {
+            initializeMainApp();
+        } else {
             showToast("❌ " + (data.message || "Login failed"));
         }
-
     } catch (e) {
         console.error(e);
-        showToast("❌ Server error");
+        showToast("❌ Network or server error");
     }
 }
+
 
         function initializeMainApp() {
             document.getElementById('school-name-header').textContent = schoolData.schoolName
