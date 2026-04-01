@@ -1,26 +1,35 @@
 <?php
-    require 'config.php';
-ini_set('display_errors', 0);
+require 'config.php';
 
 $data = json_decode(file_get_contents("php://input"), true);
+$rfid = trim($data['rfid'] ?? '');
 
-if (!isset($data['rfid'])) {
-    echo json_encode(["success"=>false,"error"=>"RFID missing"]);
+if (!$rfid) {
+    echo json_encode(["success"=>false, "error"=>"RFID missing"]);
     exit;
 }
 
-$rfid = $conn->real_escape_string($data['rfid']);
+$stmt = $conn->prepare("SELECT * FROM students WHERE rfid = ?");
+$stmt->bind_param("s", $rfid);
+$stmt->execute();
+$res = $stmt->get_result();
 
-$res = $conn->query("SELECT * FROM students WHERE rfid='$rfid'");
 if ($res->num_rows == 0) {
-    echo json_encode(["success"=>false,"error"=>"Student not found"]);
+    echo json_encode(["success"=>false, "error"=>"Student not found"]);
     exit;
 }
 
 $student = $res->fetch_assoc();
 
-$conn->query("INSERT INTO attendance (rfid, name) VALUES ('{$student['rfid']}', '{$student['name']}')");
-$conn->query("REPLACE INTO latest_scan (id, rfid, name) VALUES (1, '{$student['rfid']}', '{$student['name']}')");
+// Record attendance
+$stmt2 = $conn->prepare("INSERT INTO attendance (rfid, name) VALUES (?, ?)");
+$stmt2->bind_param("ss", $student['rfid'], $student['name']);
+$stmt2->execute();
+
+// Update latest scan
+$stmt3 = $conn->prepare("REPLACE INTO latest_scan (id, rfid, name) VALUES (1, ?, ?)");
+$stmt3->bind_param("ss", $student['rfid'], $student['name']);
+$stmt3->execute();
 
 echo json_encode([
     "success" => true,
